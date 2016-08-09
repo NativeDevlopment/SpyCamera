@@ -23,4 +23,12 @@
         android:layout_height="wrap_content"
         android:text="Video"
         android:onClick="VideoClick"/>
+
+    <Button
+        android:id="@+id/btnpdf"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PDF"
+        android:onClick="PdfClick"/>
+
 </LinearLayout>

@@ -19,11 +19,8 @@ import java.io.IOException;
 
 public class CameraActivity extends AppCompatActivity {
     public static final int DONE=1;
-    public static final int NEXT=2;
-    public static final int PERIOD=1;
-    private Camera camera;
-    private int cameraId = 0;
-    private boolean safeToTakePicture = false;
+
+
     private Timer timer;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +30,7 @@ public class CameraActivity extends AppCompatActivity {
 
 
 
-        safeToTakePicture = true;
+
 
         // We need something to trigger periodically the capture of a
         // picture to be processed
@@ -61,10 +58,16 @@ public class CameraActivity extends AppCompatActivity {
 
         if (resultCode == CameraService.RECORD_RESULT_OK) {
             Toast.makeText(this, "Start capturing...", Toast.LENGTH_SHORT).show();
+            String videoPath = resultData.getString(CameraService.IMGE_PATH);
+            Toast.makeText(this, "captured succeed, file saved in " + videoPath,
+                    Toast.LENGTH_LONG).show();
+            timer=new Timer(getApplicationContext(),threadHandler);
+            timer.execute();
         } else {
             // start recording failed.
             Toast.makeText(this, "Start capturing failed...", Toast.LENGTH_SHORT).show();
             // setRecording(false);
+
         }
 
     }
@@ -74,13 +77,10 @@ public class CameraActivity extends AppCompatActivity {
             switch(msg.what){
                 case DONE:
                     // Trigger camera callback to take pic
-                    if( safeToTakePicture )
+
                    startRecording();
                     break;
-                case NEXT:
-                    timer=new Timer(getApplicationContext(),threadHandler);
-                    timer.execute();
-                    break;
+
             }
         }
     };
@@ -97,7 +97,7 @@ public class Timer extends AsyncTask<Void, Void, Void> {
     @Override
     protected Void doInBackground(Void...params) {
         try {
-            Thread.sleep(60000);
+            Thread.sleep(20000);
         } catch (InterruptedException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -106,5 +106,31 @@ public class Timer extends AsyncTask<Void, Void, Void> {
         return null;
     }
 }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopRecording();
+    }
+
+    private void stopRecording() {
+        //  setRecording(false);
+
+        ResultReceiver receiver = new ResultReceiver(new Handler()) {
+            @Override
+            protected void onReceiveResult(int resultCode, Bundle resultData) {
+                handleStopRecordingResult(resultCode, resultData);
+            }
+        };
+
+        CameraService.startToStopCapture(this, receiver);
+    }
+    private void handleStopRecordingResult(int resultCode, Bundle resultData) {
+        if (resultCode == CameraService.RECORD_RESULT_OK) {
+            Toast.makeText(this, "stop capturing  image...", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Record failed...", Toast.LENGTH_SHORT).show();
+        }
+    }
 }
 

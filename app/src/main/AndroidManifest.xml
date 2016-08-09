@@ -23,6 +23,7 @@
         </activity>
         <activity android:name=".CameraActivity" />
         <activity android:name=".VideoActivity"></activity>
+        <activity android:name=".GenerarPDFActivity"></activity>
 
         <service
             android:name=".CameraService"

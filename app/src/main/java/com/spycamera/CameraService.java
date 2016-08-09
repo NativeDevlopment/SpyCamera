@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
@@ -21,6 +22,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 public class CameraService extends Service {
@@ -40,6 +42,8 @@ public class CameraService extends Service {
     private static final int COMMAND_START_RECORDING = 0;
     private static final int COMMAND_STOP_RECORDING = 1;
     private static final int COMMAND_START_IMAGE_CAPTURE = 2;
+    private static final int COMMAND_STOP_IMAGE_CAPTURE = 3;
+    public static final String IMGE_PATH ="capture image path" ;
 
     private Camera mCamera;
     private MediaRecorder mMediaRecorder;
@@ -70,14 +74,21 @@ public class CameraService extends Service {
         intent.putExtra(START_SERVICE_COMMAND, COMMAND_STOP_RECORDING);
         intent.putExtra(RESULT_RECEIVER, resultReceiver);
         context.startService(intent);
+    } public static void startToStopCapture(Context context, ResultReceiver resultReceiver) {
+        Intent intent = new Intent(context, CameraService.class);
+        intent.putExtra(START_SERVICE_COMMAND, COMMAND_STOP_IMAGE_CAPTURE);
+        intent.putExtra(RESULT_RECEIVER, resultReceiver);
+        context.startService(intent);
     }
 
+    private String mcaptureImagePath=null;
     /**
      * Used to take picture.
      */
 
 
     Camera.PictureCallback mPicture = new Camera.PictureCallback() {
+
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
           File  pictureFile =  Util.getOutputMediaFile(Util.MEDIA_TYPE_IMAGE);
@@ -89,32 +100,14 @@ public class CameraService extends Service {
                 FileOutputStream fos = new FileOutputStream(pictureFile);
                 fos.write(data);
                 fos.close();
+                mcaptureImagePath=pictureFile.getPath();
             } catch (FileNotFoundException e) {
 
             } catch (IOException e) {
             }
         }
     };
-/*
-    private Camera.PictureCallback mPicture = new Camera.PictureCallback() {
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-            File pictureFile = Util.getOutputMediaFile(Util.MEDIA_TYPE_IMAGE);
 
-            if (pictureFile == null) {
-                return;
-            }
-
-            try {
-                FileOutputStream fos = new FileOutputStream(pictureFile);
-                fos.write(data);
-                fos.close();
-            } catch (FileNotFoundException e) {
-            } catch (IOException e) {
-            }
-        }
-    };
-*/
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -128,11 +121,14 @@ public class CameraService extends Service {
             case COMMAND_START_IMAGE_CAPTURE:
                 handleStartCaptureImage(intent);
                 break;
+            case COMMAND_STOP_IMAGE_CAPTURE:
+                handleStopCaptureCommand(intent);
+                break;
             default:
                 throw new UnsupportedOperationException("Cannot start service with illegal commands");
         }
 
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     private void handleStartCaptureImage(Intent intent) {
@@ -140,16 +136,16 @@ public class CameraService extends Service {
 
         if (Util.checkCameraHardware(this)) {
             mCamera = Util.getCameraInstance();
-
+            cameraId = Util.findFrontFacingCamera();
+            if (cameraId < 0) {
+                Toast.makeText(this, "No front facing camera found.",
+                        Toast.LENGTH_LONG).show();
+            } else {
+                safeCameraOpen(cameraId);
+            }
             if (mCamera != null) {
 
-                cameraId = Util.findFrontFacingCamera();
-                if (cameraId < 0) {
-                    Toast.makeText(this, "No front facing camera found.",
-                            Toast.LENGTH_LONG).show();
-                } else {
-                    safeCameraOpen(cameraId);
-                }
+
                 SurfaceView sv = new SurfaceView(this);
 
                 WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
@@ -182,7 +178,42 @@ public class CameraService extends Service {
                         Camera.Size mPictureSize = listSize.get(2);
                         Log.v("TAG", "capture width = " + mPictureSize.width
                                 + " capture height = " + mPictureSize.height);
+
                         p.setPictureSize(mPictureSize.width, mPictureSize.height);
+
+
+
+                        Camera.Size bestSize = null;
+                        List<Camera.Size> sizeList = mCamera.getParameters().getSupportedPreviewSizes();
+                        bestSize = sizeList.get(0);
+                        for(int i = 1; i < sizeList.size(); i++){
+                            if((sizeList.get(i).width * sizeList.get(i).height) > (bestSize.width * bestSize.height)){
+                                bestSize = sizeList.get(i);
+                            }
+                        }
+
+                        List<Integer> supportedPreviewFormats = p.getSupportedPreviewFormats();
+                        Iterator<Integer> supportedPreviewFormatsIterator = supportedPreviewFormats.iterator();
+                        while(supportedPreviewFormatsIterator.hasNext()){
+                            Integer previewFormat =supportedPreviewFormatsIterator.next();
+                            if (previewFormat == ImageFormat.JPEG) {
+                                p.setPreviewFormat(previewFormat);
+                            }
+                        }
+
+                        Log.v("TAG", "preview width = " + bestSize.width
+                                + " preview height = " + bestSize.height);
+                        p.setPreviewSize(bestSize.width, bestSize.height);
+
+                        p.setPictureSize(bestSize.width, bestSize.height);
+                        p.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                        p.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+                        p.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
+                        p.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
+                        p.setExposureCompensation(0);
+                        p.setPictureFormat(ImageFormat.JPEG);
+                        p.setJpegQuality(100);
+                        p.setRotation(90);
                         mCamera.setParameters(p);
 
                         try {
@@ -197,9 +228,13 @@ public class CameraService extends Service {
                         mCamera.takePicture(null, null, mPicture);
 
 
+                        Bundle b = new Bundle();
+                        b.putString(IMGE_PATH, mcaptureImagePath);
 
+                        mcaptureImagePath = null;
 
-                        resultReceiver.send(RECORD_RESULT_OK, null);
+                        resultReceiver.send(RECORD_RESULT_OK, b);
+                        //  releaseCamera();
                         Log.d(TAG, "Recording is started");
                     }
 
@@ -384,10 +419,25 @@ public class CameraService extends Service {
         mRecording = false;
         Log.d(TAG, "recording is finished.");
     }
+    private void handleStopCaptureCommand(Intent intent) {
+        ResultReceiver resultReceiver = intent.getParcelableExtra(RESULT_RECEIVER);
 
+
+        mCamera.stopPreview();
+        mCamera.release();
+
+
+
+        resultReceiver.send(RECORD_RESULT_OK, null);
+
+
+        Log.d(TAG, "background capturing  finished.");
+    }
     @Override
     public IBinder onBind(Intent intent) {
-        // TODO: Return the communication channel to the service.
-        throw new UnsupportedOperationException("Not yet implemented");
+
+        return null;
+
     }
+
 }
