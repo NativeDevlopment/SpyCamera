@@ -16,6 +16,7 @@ import android.view.SurfaceView;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.util.HashMap;
 
 public class CameraActivity extends AppCompatActivity {
     public static final int DONE=1;
@@ -26,7 +27,6 @@ public class CameraActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
-
 
 
 

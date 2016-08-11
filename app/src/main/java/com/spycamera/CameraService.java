@@ -10,6 +10,7 @@ import android.hardware.Camera;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.ResultReceiver;
 import android.util.Log;
@@ -180,10 +181,13 @@ public class CameraService extends Service {
                                 + " capture height = " + mPictureSize.height);
 
                         p.setPictureSize(mPictureSize.width, mPictureSize.height);
+                        p.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                        p.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+                        p.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
+                        p.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
+                        p.setRotation(270);
 
-
-
-                        Camera.Size bestSize = null;
+                      /*  Camera.Size bestSize = null;
                         List<Camera.Size> sizeList = mCamera.getParameters().getSupportedPreviewSizes();
                         bestSize = sizeList.get(0);
                         for(int i = 1; i < sizeList.size(); i++){
@@ -210,10 +214,12 @@ public class CameraService extends Service {
                         p.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
                         p.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
                         p.setWhiteBalance(Camera.Parameters.WHITE_BALANCE_AUTO);
-                        p.setExposureCompensation(0);
+                        p.setAutoExposureLock(true);
+                        p.setExposureCompensation(mCamera.getParameters().getMaxExposureCompensation());
                         p.setPictureFormat(ImageFormat.JPEG);
                         p.setJpegQuality(100);
-                        p.setRotation(90);
+                        p.setRotation(90);*/
+                       // p.set("iso", "400");
                         mCamera.setParameters(p);
 
                         try {
@@ -223,17 +229,24 @@ public class CameraService extends Service {
                         }
                         mCamera.startPreview();
 
+                        new Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
 
 
-                        mCamera.takePicture(null, null, mPicture);
+                                mCamera.takePicture(null, null, mPicture);
 
 
-                        Bundle b = new Bundle();
-                        b.putString(IMGE_PATH, mcaptureImagePath);
+                                Bundle b = new Bundle();
+                                b.putString(IMGE_PATH, mcaptureImagePath);
 
-                        mcaptureImagePath = null;
+                                mcaptureImagePath = null;
 
-                        resultReceiver.send(RECORD_RESULT_OK, b);
+                                resultReceiver.send(RECORD_RESULT_OK, b);
+                            }
+                        }, 2000);
+
+
                         //  releaseCamera();
                         Log.d(TAG, "Recording is started");
                     }
